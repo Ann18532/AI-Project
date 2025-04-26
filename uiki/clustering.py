@@ -1,7 +1,9 @@
+# uiki/clustering.py
+
 import numpy as np
 
 class CAKI:
-    """K-means clustering to find stable centroids."""
+    """K-means clustering to find stable centroids on 1D data."""
     def __init__(self, k: int = 4, delta: float = 1e-3, max_iter: int = 100):
         self.k = k
         self.delta = delta
@@ -10,16 +12,17 @@ class CAKI:
     def fit(self, data: np.ndarray) -> np.ndarray:
         """
         Run K-means on 1D `data` to produce `k` centroids.
-        Returns sorted centroids.
+        Returns them sorted.
         """
+        # if too few points, pad with zeros
         if data.size < self.k:
-            # fewer points than clusters: pad with zeros
             centroids = np.zeros(self.k)
             centroids[: data.size] = np.sort(data)
             return np.sort(centroids)
 
         rng = np.random.default_rng()
         centroids = rng.choice(data, size=self.k, replace=False)
+
         for _ in range(self.max_iter):
             # assign each point to nearest centroid
             distances = np.abs(data[:, None] - centroids[None, :])
@@ -38,11 +41,12 @@ class CAKI:
 
 
 def fixed_centroid_clustering(
-    data: np.ndarray, centroids: np.ndarray
+    data: np.ndarray,
+    centroids: np.ndarray
 ) -> np.ndarray:
     """
-    Perform one round of clustering using `centroids` as fixed initial centers,
-    then return the newly computed cluster means. Empty clusters become 0.
+    One pass of K-means using `centroids` as fixed initial centers.
+    Returns the new cluster means (empty clusters → 0.0).
     """
     k = centroids.size
     if data.size == 0:
@@ -66,10 +70,10 @@ def compute_fluctuation_range(
     confidence: float = 0.95
 ) -> tuple[float, float]:
     """
-    Break `data` into non‐overlapping segments of length `segment_length`,
-    run fixed_centroid_clustering on each, compute L1 distance to
-    `stable_centroids`, and return the [low, high] percentile bounds
-    corresponding to the given `confidence` interval.
+    Breaks `data` into non-overlapping segments of `segment_length`,
+    clusters each with `stable_centroids` (via fixed_centroid_clustering),
+    measures L1 distance to stable, and returns the lower/upper percentile
+    bounds corresponding to `confidence`.
     """
     distances = []
     for start in range(0, data.size, segment_length):
@@ -83,8 +87,8 @@ def compute_fluctuation_range(
         return 0.0, 0.0
 
     arr = np.sort(np.array(distances))
-    p_low = (1 - confidence) / 2 * 100
+    p_low  = (1 - confidence) / 2 * 100
     p_high = (confidence + (1 - confidence) / 2) * 100
-    low = np.percentile(arr, p_low)
+    low  = np.percentile(arr, p_low)
     high = np.percentile(arr, p_high)
     return float(low), float(high)
